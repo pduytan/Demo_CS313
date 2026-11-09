@@ -396,26 +396,27 @@ def main():
             if x in matrix.columns and x not in seen_peers:
                 seen_peers.append(x)
         peer_items = seen_peers[:5]
-        distributions = []
-        for item in peer_items:
-            short_code = item.split(' = ', 1)[0]
-            distributions.extend([
-                {'ICD-3 group': short_code, 'Group': 'Full sample', 'Proportion': float(matrix[item].mean())},
-                {'ICD-3 group': short_code, 'Group': 'Selected group', 'Proportion': float(matrix.loc[matched, item].mean())},
-            ])
-        st.markdown('**How does the comorbidity profile compare?**')
-        st.caption('Comparison of baseline vs. conditional prevalence across top associated ICD-3 diagnosis groups.')
-        fig = px.bar(
-            pd.DataFrame(distributions), x='ICD-3 group', y='Proportion', color='Group', barmode='group',
-            color_discrete_map={'Full sample': '#b7a4b1', 'Selected group': '#3a0f34'}, text_auto='.1%'
-        )
-        fig.update_layout(
-            template='plotly_white', font=dict(size=18, color='#523c4d'),
-            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-            height=430, yaxis=dict(tickformat='.0%', range=[0, 1]), margin=dict(t=30, b=20)
-        )
-        st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-        chart_note(distribution_note(matrix, matched, target, peer_items))
+        if len(peer_items) > 1:
+            distributions = []
+            for item in peer_items:
+                short_code = item.split(' = ', 1)[0]
+                distributions.extend([
+                    {'ICD-3 group': short_code, 'Group': 'Full sample', 'Proportion': float(matrix[item].mean())},
+                    {'ICD-3 group': short_code, 'Group': 'Selected group', 'Proportion': float(matrix.loc[matched, item].mean())},
+                ])
+            st.markdown('**How does the comorbidity profile compare?**')
+            st.caption('Comparison of baseline vs. conditional prevalence across top associated ICD-3 diagnosis groups.')
+            fig = px.bar(
+                pd.DataFrame(distributions), x='ICD-3 group', y='Proportion', color='Group', barmode='group',
+                color_discrete_map={'Full sample': '#b7a4b1', 'Selected group': '#3a0f34'}, text_auto='.1%'
+            )
+            fig.update_layout(
+                template='plotly_white', font=dict(size=18, color='#523c4d'),
+                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                height=430, yaxis=dict(tickformat='.0%', range=[0, 1]), margin=dict(t=30, b=20)
+            )
+            st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
+            chart_note(distribution_note(matrix, matched, target, peer_items))
     st.caption('Clinical co-occurrence in hospital discharge codes reflects comorbidity patterns in this sample, not causal progression or diagnostic certainty.')
     with st.expander('View itemset and detailed figures'):
         st.write('**Itemset:** ' + ' + '.join(label(x) for x in sorted(selected | target_items)))
