@@ -5,7 +5,7 @@ from apps.app2_young_people_survey import main as app2_main
 from apps.app3_mimic_iv import main as app3_main
 
 st.set_page_config(
-    page_title='FP-Growth Association Rule Explorer',
+    page_title='Khám phá Luật kết hợp FP-Growth',
     page_icon='🧩',
     layout='wide',
 )
@@ -95,15 +95,15 @@ button[kind="secondary"]{border-radius:9px;border-color:#cbbfc6}
 st.markdown(SHARED_CSS, unsafe_allow_html=True)
 
 APPS = {
-    'Application 1 · Market Basket & Cross-Selling (Online Retail)': app1_main,
-    'Application 2 · Personality & Behavior (Young People Survey)': app2_main,
-    'Application 3 · Clinical Comorbidities (MIMIC-IV)': app3_main,
+    'Ứng dụng 1 · Khám phá Quy luật Giỏ hàng (Online Retail)': app1_main,
+    'Ứng dụng 2 · Tính cách & Hành vi (Young People Survey)': app2_main,
+    'Ứng dụng 3 · Khám phá Quy luật Bệnh đồng mắc (MIMIC-IV)': app3_main,
 }
 
 with st.sidebar:
-    st.subheader('Select application')
+    st.subheader('Chọn ứng dụng')
     selected_app = st.selectbox(
-        'Application',
+        'Ứng dụng',
         list(APPS.keys()),
         index=1,
         key='active_application',

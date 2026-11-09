@@ -30,10 +30,10 @@ RENAL_RESP_HEME_PREFIXES = (
 def classify_diagnosis(item):
     code, _ = item.split(' = ', 1)
     if any(code.startswith(p) for p in CARDIOMETABOLIC_PREFIXES):
-        return 'Cardiometabolic & endocrine'
+        return 'Tim mạch, Chuyển hóa & Nội tiết'
     if any(code.startswith(p) for p in RENAL_RESP_HEME_PREFIXES):
-        return 'Renal, respiratory & hematologic'
-    return 'Gastrointestinal, neurologic & other'
+        return 'Thận, Hô hấp & Huyết học'
+    return 'Tiêu hóa, Thần kinh & Nhóm khác'
 
 
 @st.cache_data
@@ -76,8 +76,8 @@ def describe(item):
     formatted = []
     for p in parts:
         code, title = p.split(' = ', 1)
-        formatted.append(f'diagnosis group “{title}” ({code})')
-    return 'have ' + ' and '.join(formatted)
+        formatted.append(f'nhóm bệnh “{title}” ({code})')
+    return 'có ghi nhận ' + ' và '.join(formatted)
 
 
 def restore_selection(valid, previous):
@@ -85,7 +85,7 @@ def restore_selection(valid, previous):
     if proposed and frozenset(proposed) not in valid:
         st.session_state.app3_items = list(previous)
         st.session_state._saved_app3_items = list(previous)
-        st.session_state.app3_notice = 'This combination has no results under the current filters. Your previous selection was restored; clear all items to start again.'
+        st.session_state.app3_notice = 'Tổ hợp này không có kết quả thỏa mãn bộ lọc hiện tại. Đã khôi phục lựa chọn trước đó; hãy xóa các mục đã chọn để bắt đầu lại.'
     else:
         st.session_state._saved_app3_items = list(proposed)
 
@@ -98,17 +98,17 @@ def change_topic():
 def rule_diagram(selected, target, n, joint):
     chips = ''.join(f'<span class="rule-chip">{escape(x)}</span>' for x in sorted(selected))
     target_chips = ''.join(f'<span class="rule-chip">{escape(x)}</span>' for x in target.split(' + '))
-    return (f'<div class="rule-flow"><div class="rule-node"><div class="rule-kicker">INPUT · ALL ITEMS PRESENT</div>'
-            f'{chips}<div class="rule-note">{n} patients match all input diagnoses</div></div>'
+    return (f'<div class="rule-flow"><div class="rule-node"><div class="rule-kicker">ĐẦU VÀO · CHẨN ĐOÁN HIỆN CÓ</div>'
+            f'{chips}<div class="rule-note">{n} bệnh nhân có đủ các chẩn đoán đầu vào</div></div>'
             '<div class="rule-arrow" aria-label="associated with">→</div>'
-            f'<div class="rule-node rule-target"><div class="rule-kicker">ASSOCIATED DIAGNOSIS</div>'
+            f'<div class="rule-node rule-target"><div class="rule-kicker">CHẨN ĐOÁN ĐỒNG MẮC</div>'
             f'{target_chips}'
-            f'<div class="rule-note">{joint}/{n} patients also match this outcome · {joint/n:.1%}</div></div></div>'
-            '<div class="rule-footnote">The arrow indicates the direction of the association rule, not causation.</div>')
+            f'<div class="rule-note">{joint}/{n} bệnh nhân cũng có chẩn đoán này · {joint/n:.1%}</div></div></div>'
+            '<div class="rule-footnote">Mũi tên thể hiện chiều của luật kết hợp (association rule), không mang ý nghĩa nhân quả.</div>')
 
 
 def chart_note(text):
-    st.markdown(f'<div class="chart-note"><strong>Observation</strong><p>{escape(text)}</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="chart-note"><strong>Nhận xét</strong><p>{escape(text)}</p></div>', unsafe_allow_html=True)
 
 
 def result_table(rows):
@@ -117,8 +117,8 @@ def result_table(rows):
         f'<td>{row.confidence:.2%}</td><td>{row.lift:.2f}×</td></tr>'
         for row in rows.head(20).itertuples())
     return ('<div class="results-table-wrap" role="region" aria-label="Associated responses" tabindex="0">'
-            '<table class="results-table"><thead><tr><th scope="col">Response</th>'
-            '<th scope="col">Joint count</th><th scope="col">Confidence</th>'
+            '<table class="results-table"><thead><tr><th scope="col">Chẩn đoán đồng mắc</th>'
+            '<th scope="col">Số bệnh nhân chung</th><th scope="col">Confidence</th>'
             '<th scope="col">Lift</th></tr></thead><tbody>' + body + '</tbody></table></div>')
 
 
@@ -129,9 +129,9 @@ def distribution_note(matrix, matched, target, peer_items):
     changes = group - overall
     up = changes.idxmax()
     lines = [
-        f'Within the selected patient subgroup, “{top_item}” has the highest prevalence ({group.max():.1%}).',
-        f'Compared with all {len(matrix)} patients, “{up}” shows the largest increase (+{100*changes[up]:.1f} percentage points).',
-        f'The current rule concerns “{target}”; these associations reflect clinical comorbidity in the hospital cohort, not direct disease causation.'
+        f'Trong nhóm bệnh nhân đã chọn, “{top_item}” có tỷ lệ hiện diện cao nhất ({group.max():.1%}).',
+        f'So với toàn bộ {len(matrix)} bệnh nhân, “{up}” có mức tăng lớn nhất (+{100*changes[up]:.1f}%).',
+        f'Luật hiện tại xét “{target}”; các liên kết này phản ánh tình trạng bệnh đồng mắc (comorbidity) trong mẫu bệnh viện, không khẳng định bệnh này trực tiếp gây ra bệnh kia.'
     ]
     return ' '.join(lines)
 
@@ -214,13 +214,13 @@ def expand_valid_sets(filtered):
 
 def main():
     matrix, rules, _, total_icd3 = load_mimic()
-    st.markdown(f'''<div class="hero"><div class="eyebrow">MIMIC-IV CLINICAL DATABASE DEMO 2.2</div>
-    <h1>Discover Patterns in Clinical Comorbidities</h1>
-    <p>Explore how 3-character ICD-9 and ICD-10 disease categories co-occur across hospital patient records.</p>
-    <span class="badge">{len(matrix)} patients &nbsp; · &nbsp; {total_icd3} ICD-3 disease groups</span></div>''', unsafe_allow_html=True)
-    st.subheader('01 · Choose your starting features')
+    st.markdown(f'''<div class="hero"><div class="eyebrow">CƠ SỞ DỮ LIỆU LÂM SÀNG MIMIC-IV DEMO 2.2</div>
+    <h1>Khám phá Quy luật Bệnh đồng mắc</h1>
+    <p>Khám phá cách các nhóm bệnh ICD-9 và ICD-10 đồng xuất hiện trong hồ sơ bệnh án nội trú.</p>
+    <span class="badge">{len(matrix)} bệnh nhân &nbsp; · &nbsp; {total_icd3} nhóm bệnh ICD-3</span></div>''', unsafe_allow_html=True)
+    st.subheader('01 · Chọn các chẩn đoán khởi đầu')
     with st.sidebar:
-        st.subheader('Result filters')
+        st.subheader('Bộ lọc kết quả')
         support = st.slider('Support', 0.0, 0.50, 0.10, 0.01, key='app3_support')
         confidence = st.slider('Confidence', 0.0, 1.0, 0.60, 0.01, key='app3_confidence')
         lift = st.slider('Lift', 0.0, 6.0, 1.20, 0.05, key='app3_lift')
@@ -234,11 +234,14 @@ def main():
         st.session_state.app3_navigation_version = 1
     if 'app3_items' not in st.session_state:
         st.session_state.app3_items = list(st.session_state.get('_saved_app3_items', default_list))
-    if 'app3_topic' not in st.session_state and '_saved_app3_topic' in st.session_state:
+    topics = ['Tim mạch, Chuyển hóa & Nội tiết', 'Thận, Hô hấp & Huyết học', 'Tiêu hóa, Thần kinh & Nhóm khác', 'Tất cả chẩn đoán']
+    if st.session_state.get('_saved_app3_topic') in topics and 'app3_topic' not in st.session_state:
         st.session_state.app3_topic = st.session_state._saved_app3_topic
+    elif st.session_state.get('app3_topic') not in topics:
+        st.session_state.app3_topic = topics[0]
     topic = st.selectbox(
-        'Browse features by topic',
-        ['Cardiometabolic & endocrine', 'Renal, respiratory & hematologic', 'Gastrointestinal, neurologic & other', 'All diagnoses'],
+        'Lọc nhóm bệnh theo hệ cơ quan lâm sàng',
+        topics,
         key='app3_topic',
         on_change=change_topic,
     )
@@ -252,13 +255,13 @@ def main():
         selected = frozenset()
         if live_query:
             valid = query_navigation(matrix, selected, support, confidence, lift)
-        st.info('Your previous selection no longer meets the filters. Start again with the available items below.')
-    ordered = sorted(matrix.columns, key=lambda x: (classify_diagnosis(x) == 'Gastrointestinal, neurologic & other', label(x)))
+        st.info('Lựa chọn trước đó không còn thỏa mãn bộ lọc hiện tại. Hãy chọn lại từ danh sách bên dưới.')
+    ordered = sorted(matrix.columns, key=lambda x: (classify_diagnosis(x) == 'Tiêu hóa, Thần kinh & Nhóm khác', label(x)))
     options = allowed_extensions(valid, selected, ordered)
-    if topic != 'All diagnoses':
+    if topic != 'Tất cả chẩn đoán':
         options = [x for x in options if x in selected or classify_diagnosis(x) == topic]
     st.multiselect(
-        'Select 1–3 diagnosis items',
+        'Chọn từ 1–3 nhóm bệnh chẩn đoán đầu vào',
         options,
         format_func=label,
         max_selections=3,
@@ -273,7 +276,7 @@ def main():
     st.session_state._saved_app3_items = list(current_items)
     selected = frozenset(current_items)
     if not selected:
-        st.info('Select an item to get started.' if valid else 'No rules meet the current filters. Lower the thresholds to continue.')
+        st.info('Hãy chọn một chẩn đoán để bắt đầu.' if valid else 'Không có luật nào thỏa mãn bộ lọc hiện tại. Hãy giảm ngưỡng lọc ở thanh bên trái.')
         return
     matched = matrix[list(selected)].all(axis=1)
     n = int(matched.sum())
@@ -282,8 +285,8 @@ def main():
         candidates = query_rules(matrix, selected, support, confidence, lift).sort_values(['confidence', 'lift'], ascending=False)
     candidates = candidates.copy()
     st.divider()
-    st.subheader('02 · Explore associated responses')
-    st.caption(f'The selected group contains {n} of {len(matrix)} patients.')
+    st.subheader('02 · Khám phá các chẩn đoán đồng mắc')
+    st.caption(f'Nhóm đang chọn gồm {n} trên tổng số {len(matrix)} bệnh nhân.')
     if candidates.empty:
         ext_rules = filtered[filtered.antecedents.map(lambda a: selected.issubset(a) and len(a) > len(selected))]
         direct_fallback = rules[rules.antecedents.eq(selected)].sort_values(['confidence', 'lift'], ascending=False)
@@ -292,17 +295,17 @@ def main():
         if not ext_rules.empty:
             companions = sorted({x for a in ext_rules.antecedents for x in (a - selected)})
             st.info(
-                f'This selection participates in multi-item rules under the current filters (Confidence ≥ {confidence:.0%}). '
-                f'Add a companion diagnosis above ({", ".join(companions[:3])}) to view the multi-item rule, or inspect its direct associations below.'
+                f'Chẩn đoán này tham gia vào các luật kết hợp đa bệnh lý ở ngưỡng hiện tại (Confidence ≥ {confidence:.0%}). '
+                f'Hãy chọn thêm chẩn đoán đi kèm ở Bước 01 ({", ".join(companions[:3])}) để xem luật đa mục, hoặc xem các liên kết trực tiếp bên dưới.'
             )
         elif not direct_fallback.empty:
             st.info(
-                f'As a standalone antecedent, this diagnosis has a maximum confidence of {direct_fallback.confidence.max():.1%} '
-                f'(below the current {confidence:.0%} filter). Its direct associations are shown below.'
+                f'Khi đứng độc lập ở vế trái, chẩn đoán này có Confidence tối đa là {direct_fallback.confidence.max():.1%} '
+                f'(thấp hơn ngưỡng lọc {confidence:.0%} hiện tại). Các chẩn đoán đồng mắc trực tiếp được hiển thị bên dưới.'
             )
         candidates = direct_fallback.copy()
     if candidates.empty:
-        st.info('No results meet the current filters.')
+        st.info('Không có kết quả nào thỏa mãn bộ lọc hiện tại.')
         return
     rows = candidates.copy()
     rows['Response'] = rows.consequent.map(label)
@@ -312,7 +315,7 @@ def main():
     if st.session_state.get('app3_result') not in result_options:
         st.session_state.app3_result = initial_result
     chosen = st.selectbox(
-        'Choose a response to examine',
+        'Chọn một chẩn đoán đồng mắc để phân tích chi tiết',
         result_options,
         index=result_options.index(st.session_state.get('app3_result', initial_result)),
         format_func=label,
@@ -324,44 +327,44 @@ def main():
     joint = int(matrix[list(selected | target_items)].all(axis=1).sum())
     base = float(matrix[list(target_items)].all(axis=1).mean())
     conf = joint / n
-    condition = ' and '.join(describe(x) for x in sorted(selected))
+    condition = ' và '.join(describe(x) for x in sorted(selected))
     outcome = describe(target)
     st.divider()
-    st.subheader('03 · Understand the selected association')
+    st.subheader('03 · Phân tích chi tiết luật kết hợp đã chọn')
     st.markdown(rule_diagram(selected, target, n, joint), unsafe_allow_html=True)
-    st.markdown('**If a patient record were to ' + condition + '…**')
-    st.markdown('**Associated response in this sample:** ' + outcome + '.')
-    st.write(f'Of the **{n} patients** matching all selected diagnoses, **{joint} ({conf:.1%})** also {outcome}.')
-    direction = 'higher' if conf >= base else 'lower'
-    st.write(f'In the full sample, this diagnosis occurs in **{base:.1%}** of patients. The selected group is '
-             f'**{100*abs(conf-base):.1f} percentage points {direction}**, or **{conf/base:.2f} times** the baseline rate.')
-    st.info('Diagnoses are grouped by 3-character ICD-9/ICD-10 prefix (excluding non-disease V/E/R/W/X/Y/Z codes) and named after the most frequent full ICD code in each group.')
+    st.markdown('**Nếu hồ sơ bệnh án của một bệnh nhân ' + condition + '…**')
+    st.markdown('**Chẩn đoán đồng mắc trong mẫu dữ liệu:** ' + outcome + '.')
+    st.write(f'Trong số **{n} bệnh nhân** có đủ các chẩn đoán đầu vào, có **{joint} bệnh nhân ({conf:.1%})** cũng {outcome}.')
+    direction = 'cao hơn' if conf >= base else 'thấp hơn'
+    st.write(f'Trên toàn bộ mẫu bệnh nhân, chẩn đoán này xuất hiện ở **{base:.1%}** bệnh nhân. Nhóm đã chọn có tỷ lệ '
+             f'**{direction} {100*abs(conf-base):.1f}%**, tương đương **{conf/base:.2f} lần** mức nền (baseline).')
+    st.info('Các chẩn đoán được gom theo mã ICD-9/ICD-10 3 ký tự (đã loại bỏ các mã ngoại nhân và triệu chứng V/E/R/W/X/Y/Z) và đặt tên theo mã ICD chi tiết phổ biến nhất trong từng nhóm.')
     c1, c2, c3 = st.columns(3)
     c1.metric('Support', f'{joint/len(matrix):.2%}',
-              help='Patients matching both the input and outcome diagnoses, divided by the full cohort.')
-    c1.caption(f'{joint}/{len(matrix)} patients in the full sample')
+              help='Số bệnh nhân có cả chẩn đoán đầu vào và chẩn đoán kết quả chia cho tổng số bệnh nhân.')
+    c1.caption(f'{joint}/{len(matrix)} bệnh nhân trong toàn bộ mẫu')
     c2.metric('Confidence', f'{conf:.2%}',
-              help='Patients matching both the input and outcome diagnoses, divided by those matching the input.')
-    c2.caption(f'{joint}/{n} patients in the selected group')
+              help='Số bệnh nhân có cả chẩn đoán đầu vào và kết quả chia cho số bệnh nhân có chẩn đoán đầu vào.')
+    c2.caption(f'{joint}/{n} bệnh nhân trong nhóm đã chọn')
     c3.metric('Lift', f'{conf/base:.2f}×',
-              help='Confidence divided by the diagnosis frequency in the full cohort.')
+              help='Confidence chia cho tần suất xuất hiện nền của chẩn đoán kết quả trong toàn mẫu.')
     c3.caption(f'{conf:.2%} / {base:.2%}')
 
     chart_context = ('app3', tuple(sorted(selected)), target, float(support), float(confidence), float(lift))
     if st.session_state.get('app3_chart_context') != chart_context:
         st.session_state.app3_chart_context = chart_context
         st.session_state.app3_show_charts = False
-    if st.button('Hide analysis charts' if st.session_state.get('app3_show_charts') else 'Show analysis charts',
+    if st.button('Ẩn biểu đồ phân tích' if st.session_state.get('app3_show_charts') else 'Hiện biểu đồ phân tích',
                  key='show_charts_button', icon=':material/monitoring:', type='primary'):
         st.session_state.app3_show_charts = not st.session_state.get('app3_show_charts', False)
         st.rerun()
     if st.session_state.get('app3_show_charts'):
         left, right = st.columns([1.15, 1])
         with left:
-            st.markdown('**How common is this response?**')
+            st.markdown('**Mức độ phổ biến của chẩn đoán này như thế nào?**')
             fig = px.bar(
-                pd.DataFrame({'Group': ['Full sample', 'Selected group'], 'Proportion': [base, conf]}),
-                x='Group', y='Proportion', color='Group',
+                pd.DataFrame({'Nhóm': ['Toàn bộ mẫu', 'Nhóm đã chọn'], 'Tỷ lệ': [base, conf]}),
+                x='Nhóm', y='Tỷ lệ', color='Nhóm',
                 color_discrete_sequence=['#b7a4b1', '#3a0f34'], text_auto='.1%'
             )
             fig.update_layout(
@@ -371,13 +374,13 @@ def main():
                 yaxis=dict(range=[0, 1], tickformat='.0%')
             )
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-            chart_note(f'Diagnosis “{target}” occurs in {conf:.1%} of the selected patient group, '
-                       f'versus {base:.1%} of the full sample: {100*abs(conf-base):.1f} percentage points {direction} '
-                       f'(lift {conf/base:.2f}). The full sample includes the selected group.')
+            chart_note(f'Chẩn đoán “{target}” xuất hiện ở {conf:.1%} nhóm bệnh nhân đã chọn, '
+                       f'so với {base:.1%} của toàn bộ mẫu: {direction} {100*abs(conf-base):.1f}% '
+                       f'(Lift {conf/base:.2f}). Toàn bộ mẫu đã bao gồm nhóm được chọn.')
         with right:
-            st.markdown('**Within the selected group**')
+            st.markdown('**Tỷ lệ bên trong nhóm bệnh nhân đã chọn**')
             fig = go.Figure(go.Pie(
-                labels=['With target diagnosis', 'Without target diagnosis'],
+                labels=['Có chẩn đoán đích', 'Không có chẩn đoán đích'],
                 values=[joint, n - joint], hole=.65,
                 marker_colors=['#3a0f34', '#d6cdd2'], textinfo='value+percent'
             ))
@@ -388,8 +391,8 @@ def main():
                 annotations=[dict(text=f'{joint}/{n}', x=.5, y=.5, font_size=18, showarrow=False)]
             )
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
-            chart_note(f'Of {n} patients matching all input diagnoses, {joint} also have '
-                       f'“{target}”; {n-joint} ({1-conf:.1%}) do not have this diagnosis recorded.')
+            chart_note(f'Trong số {n} bệnh nhân có đủ chẩn đoán đầu vào, có {joint} bệnh nhân cũng được ghi nhận '
+                       f'“{target}”; {n-joint} bệnh nhân ({1-conf:.1%}) không ghi nhận chẩn đoán này.')
         single_options = [x for c in result_options for x in c.split(' + ')]
         seen_peers = []
         for x in list(target_items) + single_options:
@@ -401,14 +404,14 @@ def main():
             for item in peer_items:
                 short_code = item.split(' = ', 1)[0]
                 distributions.extend([
-                    {'ICD-3 group': short_code, 'Group': 'Full sample', 'Proportion': float(matrix[item].mean())},
-                    {'ICD-3 group': short_code, 'Group': 'Selected group', 'Proportion': float(matrix.loc[matched, item].mean())},
+                    {'Nhóm ICD-3': short_code, 'Nhóm': 'Toàn bộ mẫu', 'Tỷ lệ': float(matrix[item].mean())},
+                    {'Nhóm ICD-3': short_code, 'Nhóm': 'Nhóm đã chọn', 'Tỷ lệ': float(matrix.loc[matched, item].mean())},
                 ])
-            st.markdown('**How does the comorbidity profile compare?**')
-            st.caption('Comparison of baseline vs. conditional prevalence across top associated ICD-3 diagnosis groups.')
+            st.markdown('**So sánh hồ sơ các nhóm bệnh đồng mắc hàng đầu**')
+            st.caption('So sánh tỷ lệ lưu hành nền (toàn mẫu) và tỷ lệ có điều kiện (nhóm đã chọn) qua các nhóm bệnh ICD-3 liên kết mạnh nhất.')
             fig = px.bar(
-                pd.DataFrame(distributions), x='ICD-3 group', y='Proportion', color='Group', barmode='group',
-                color_discrete_map={'Full sample': '#b7a4b1', 'Selected group': '#3a0f34'}, text_auto='.1%'
+                pd.DataFrame(distributions), x='Nhóm ICD-3', y='Tỷ lệ', color='Nhóm', barmode='group',
+                color_discrete_map={'Toàn bộ mẫu': '#b7a4b1', 'Nhóm đã chọn': '#3a0f34'}, text_auto='.1%'
             )
             fig.update_layout(
                 template='plotly_white', font=dict(size=18, color='#523c4d'),
@@ -417,14 +420,14 @@ def main():
             )
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
             chart_note(distribution_note(matrix, matched, target, peer_items))
-    st.caption('Clinical co-occurrence in hospital discharge codes reflects comorbidity patterns in this sample, not causal progression or diagnostic certainty.')
-    with st.expander('View itemset and detailed figures'):
+    st.caption('Sự đồng xuất hiện của các mã chẩn đoán xuất viện phản ánh mô hình bệnh đồng mắc trong mẫu nghiên cứu, không khẳng định tiến triển nhân quả hay chẩn đoán chắc chắn.')
+    with st.expander('Xem tập mục (Itemset) và số liệu chi tiết'):
         st.write('**Itemset:** ' + ' + '.join(label(x) for x in sorted(selected | target_items)))
-        st.write('**Rule:** ' + ' + '.join(label(x) for x in sorted(selected)) + ' → ' + label(target))
+        st.write('**Luật kết hợp:** ' + ' + '.join(label(x) for x in sorted(selected)) + ' → ' + label(target))
         st.write(f'Support: {joint/len(matrix):.2%} · Confidence: {conf:.2%} · Lift: {conf/base:.2f}')
-        st.write('Dataset: MIMIC-IV Clinical Database Demo 2.2 (3-character ICD-9/ICD-10 disease groups)')
+        st.write('Bộ dữ liệu: MIMIC-IV Clinical Database Demo 2.2 (Nhóm bệnh ICD-9/ICD-10 3 ký tự)')
         st.download_button(
-            'Download results for this selection',
+            'Tải kết quả cho lựa chọn này (CSV)',
             rows[['antecedent', 'consequent', 'antecedent_count', 'joint_count', 'support', 'confidence', 'baseline', 'lift']].to_csv(index=False).encode('utf-8-sig'),
             'app3_mimic_iv_results.csv',
             'text/csv',

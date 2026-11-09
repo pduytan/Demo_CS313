@@ -22,7 +22,7 @@ def explain_rule(antecedent, target, group_count, joint_count, population, basel
         f'Trong nhóm này, {joint_count} người cũng chọn “{label(target)}”, '
         f'tương đương {confidence:.2%}. Trong toàn bộ {population} người, '
         f'mức trả lời ở vế phải xuất hiện ở {baseline:.2%}. '
-        f'Tỷ lệ trong nhóm cao hơn {difference:.2f} điểm phần trăm, '
+        f'Tỷ lệ trong nhóm cao hơn {difference:.2f}%, '
         f'tương đương {lift:.2f} lần mức nền. '
         f'Cả tổ hợp xuất hiện ở {support:.2%} toàn mẫu. '
         'Đây là liên hệ giữa các câu trả lời trong mẫu; không có nghĩa các đặc điểm gây ra nhau '
