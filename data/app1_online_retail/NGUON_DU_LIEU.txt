@@ -1,0 +1,6 @@
+Chen, D. (2015). Online Retail [Dataset]. UCI Machine Learning Repository. DOI: https://doi.org/10.24432/C5BW33
+https://archive.ics.uci.edu/dataset/352/online+retail
+Original download: https://archive.ics.uci.edu/static/public/352/online+retail.zip
+License: CC BY 4.0.
+Clean CSV: 17901 invoices, 3785 item codes, 473691 unique invoice-item pairs. Group by InvoiceNo; each group is one transaction.
+Raw workbook is not included in this compact ZIP. The Python script downloads it from UCI if needed.
