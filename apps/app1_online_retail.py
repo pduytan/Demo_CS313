@@ -2,6 +2,7 @@
 from pathlib import Path
 from html import escape
 from collections import Counter
+from itertools import combinations
 import json
 import pandas as pd
 import numpy as np
@@ -58,8 +59,12 @@ def label(item):
 
 
 def describe(item):
-    code, name = item.split(' = ', 1)
-    return f'include product “{name}” ({code})'
+    parts = item.split(' + ')
+    formatted = []
+    for p in parts:
+        code, name = p.split(' = ', 1)
+        formatted.append(f'product “{name}” ({code})')
+    return 'include ' + ' and '.join(formatted)
 
 
 def restore_selection(valid, previous):
@@ -79,12 +84,13 @@ def change_topic():
 
 def rule_diagram(selected, target, n, joint):
     chips = ''.join(f'<span class="rule-chip">{escape(x)}</span>' for x in sorted(selected))
+    target_chips = ''.join(f'<span class="rule-chip">{escape(x)}</span>' for x in target.split(' + '))
     return (f'<div class="rule-flow"><div class="rule-node"><div class="rule-kicker">INPUT · ALL ITEMS PRESENT</div>'
             f'{chips}<div class="rule-note">{n:,} invoices match all input items</div></div>'
             '<div class="rule-arrow" aria-label="associated with">→</div>'
-            f'<div class="rule-node rule-target"><div class="rule-kicker">ASSOCIATED PRODUCT</div>'
-            f'<span class="rule-chip">{escape(target)}</span>'
-            f'<div class="rule-note">{joint:,}/{n:,} invoices also match this item · {joint/n:.1%}</div></div></div>'
+            f'<div class="rule-node rule-target"><div class="rule-kicker">ASSOCIATED PRODUCT(S)</div>'
+            f'{target_chips}'
+            f'<div class="rule-note">{joint:,}/{n:,} invoices also match this outcome · {joint/n:.1%}</div></div></div>'
             '<div class="rule-footnote">The arrow indicates the direction of the association rule, not causation.</div>')
 
 
@@ -179,6 +185,20 @@ def query_navigation(matrix, selected, support, confidence, lift):
     return valid
 
 
+def expand_valid_sets(filtered):
+    valid = set()
+    for ant in filtered.antecedents:
+        valid.add(ant)
+        if len(ant) > 1:
+            for r in range(1, len(ant)):
+                for sub in combinations(ant, r):
+                    valid.add(frozenset(sub))
+    for con in filtered.consequent.unique():
+        for part in con.split(' + '):
+            valid.add(frozenset([part]))
+    return valid
+
+
 def main():
     matrix, rules, _, total_products = load_retail()
     st.markdown(f'''<div class="hero"><div class="eyebrow">UCI ONLINE RETAIL · UNITED KINGDOM</div>
@@ -193,7 +213,7 @@ def main():
         lift = st.slider('Lift', 0.0, 20.0, 1.50, 0.10, key='app1_lift')
     filtered = rules[rules.support.ge(support - 1e-12) & rules.confidence.ge(confidence - 1e-12) & rules.lift.gt(lift)]
     live_query = support < 0.005 or confidence < 0.20 or lift < 1.20
-    valid = set(filtered.antecedents)
+    valid = expand_valid_sets(filtered)
     default_item = '22386 = JUMBO BAG PINK POLKADOT'
     default_list = [default_item] if default_item in matrix.columns else []
     if st.session_state.get('app1_navigation_version') != 1:
@@ -252,6 +272,24 @@ def main():
     st.subheader('02 · Explore associated responses')
     st.caption(f'The selected group contains {n:,} of {len(matrix):,} valid UK invoices.')
     if candidates.empty:
+        ext_rules = filtered[filtered.antecedents.map(lambda a: selected.issubset(a) and len(a) > len(selected))]
+        direct_fallback = rules[rules.antecedents.eq(selected)].sort_values(['confidence', 'lift'], ascending=False)
+        if direct_fallback.empty:
+            direct_fallback = query_rules(matrix, selected, 0.005, 0.10, 1.20).sort_values(['confidence', 'lift'], ascending=False)
+        if not ext_rules.empty:
+            companions = sorted({x for a in ext_rules.antecedents for x in (a - selected)})
+            st.info(
+                f'This selection participates in multi-item rules under the current filters (Confidence ≥ {confidence:.0%}). '
+                f'Add a companion item above ({", ".join(companions[:3])}) to view the multi-item rule, or inspect its direct associations below.'
+            )
+        elif not direct_fallback.empty:
+            st.info(
+                f'As a standalone antecedent, this high-frequency product has a maximum confidence of {direct_fallback.confidence.max():.1%} '
+                f'(below the current {confidence:.0%} filter, while appearing as a consequent or at lower confidence). '
+                'Its direct associations are shown below.'
+            )
+        candidates = direct_fallback.copy()
+    if candidates.empty:
         st.info('No results meet the current filters.')
         return
     rows = candidates.copy()
@@ -270,8 +308,9 @@ def main():
     )
     row = candidates[candidates.consequent.eq(chosen)].iloc[0]
     target = row.consequent
-    joint = int(matrix[list(selected | {target})].all(axis=1).sum())
-    base = float(matrix[target].mean())
+    target_items = frozenset(target.split(' + '))
+    joint = int(matrix[list(selected | target_items)].all(axis=1).sum())
+    base = float(matrix[list(target_items)].all(axis=1).mean())
     conf = joint / n
     condition = ' and '.join(describe(x) for x in sorted(selected))
     outcome = describe(target)
@@ -339,7 +378,12 @@ def main():
             st.plotly_chart(fig, width='stretch', config={'displayModeBar': False})
             chart_note(f'Of {n:,} invoices matching all input items, {joint:,} also contain '
                        f'“{target}”; {n-joint:,} ({1-conf:.1%}) do not contain this product.')
-        peer_items = [target] + [x for x in result_options if x != target][:4]
+        single_options = [x for c in result_options for x in c.split(' + ')]
+        seen_peers = []
+        for x in list(target_items) + single_options:
+            if x in matrix.columns and x not in seen_peers:
+                seen_peers.append(x)
+        peer_items = seen_peers[:5]
         distributions = []
         for item in peer_items:
             short_code = item.split(' = ', 1)[0]
@@ -362,7 +406,7 @@ def main():
         chart_note(distribution_note(matrix, matched, target, peer_items))
     st.caption('Co-occurrence in historical invoices does not imply causation or guaranteed purchase for every customer.')
     with st.expander('View itemset and detailed figures'):
-        st.write('**Itemset:** ' + ' + '.join(label(x) for x in sorted(selected | {target})))
+        st.write('**Itemset:** ' + ' + '.join(label(x) for x in sorted(selected | target_items)))
         st.write('**Rule:** ' + ' + '.join(label(x) for x in sorted(selected)) + ' → ' + label(target))
         st.write(f'Support: {joint/len(matrix):.2%} · Confidence: {conf:.2%} · Lift: {conf/base:.2f}')
         st.write('Dataset: UCI Online Retail (United Kingdom valid invoices)')
