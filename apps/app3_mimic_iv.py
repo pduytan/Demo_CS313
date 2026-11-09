@@ -338,7 +338,6 @@ def main():
     direction = 'cao hơn' if conf >= base else 'thấp hơn'
     st.write(f'Trên toàn bộ mẫu bệnh nhân, chẩn đoán này xuất hiện ở **{base:.1%}** bệnh nhân. Nhóm đã chọn có tỷ lệ '
              f'**{direction} {100*abs(conf-base):.1f}%**, tương đương **{conf/base:.2f} lần** mức nền (baseline).')
-    st.info('Các chẩn đoán được gom theo mã ICD-9/ICD-10 3 ký tự (đã loại bỏ các mã ngoại nhân và triệu chứng V/E/R/W/X/Y/Z) và đặt tên theo mã ICD chi tiết phổ biến nhất trong từng nhóm.')
     c1, c2, c3 = st.columns(3)
     c1.metric('Support', f'{joint/len(matrix):.2%}',
               help='Số bệnh nhân có cả chẩn đoán đầu vào và chẩn đoán kết quả chia cho tổng số bệnh nhân.')

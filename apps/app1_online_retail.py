@@ -325,7 +325,6 @@ def main():
     direction = 'cao hơn' if conf >= base else 'thấp hơn'
     st.write(f'Trên toàn bộ mẫu dữ liệu, sản phẩm này xuất hiện ở **{base:.2%}** tổng số hóa đơn. Tỷ lệ trong nhóm đã chọn '
              f'**{direction} {100*abs(conf-base):.1f}%**, tương đương **{conf/base:.2f} lần** mức nền (baseline).')
-    st.info('Luật giỏ hàng phản ánh tần suất đồng xuất hiện trên các hóa đơn hợp lệ tại thị trường UK (đã loại hóa đơn hủy và mã phí vận chuyển), phục vụ gợi ý combo và bán chéo.')
     c1, c2, c3 = st.columns(3)
     c1.metric('Support', f'{joint/len(matrix):.2%}',
               help='Số hóa đơn chứa cả vế trái và vế phải chia cho tổng số hóa đơn hợp lệ.')
